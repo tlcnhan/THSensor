@@ -65,14 +65,21 @@ class TMP117Sensor(object):
             return True
         else:
             return False
-
+    # send temp value to MQTT broker    
+    def sendMQTT_temp(self,temperature):
+        topic_name = "NhanIOT/test/t_data_TMP117/"
+        mqtt_host = "test.mosquitto.org"
+        data_out = temperature
+        publish.single(topic_name, data_out, hostname = mqtt_host)
+        
+        
 #############################################################################
 # SHTC3 sensor with temparature and humidity
 # OS shell commands to register the SHTC3 sensor at 0x70
 #os.system("sudo su")
 #os.system("echo shtc1 0x70 > /sys/bus/i2c/devices/i2c-1/new_device")
 #os.system("exit")
-# can install lm-sensors to verfiy the temperator/humidity with this software
+# can install lm-sensors to verifiy the temperator/humidity with this software
 #############################################################################
 class SHTC3Sensor(object):
     temperature_data_path = "/sys/class/hwmon/hwmon1/temp1_input"
@@ -126,7 +133,7 @@ class SHTC3Sensor(object):
         publish.single(topic_name, data_out, hostname = mqtt_host)
         
     def sendMQTT_alarm(self, temperature):
-        topic_name = "NhanIOT/test/alarm"
+        topic_name = "NhanIOT/test/alarm/"
         mqtt_host = "test.mosquitto.org"
         
         data_dict = {"Temperature": temperature, "Humidity": humidity,"time": str(dt.datetime.now())}
@@ -135,6 +142,16 @@ class SHTC3Sensor(object):
         msg = "Temperature cross max value " + str(SHTC3Sensor.shtc3_temp_max_value)
         publish.single(topic_name, msg, hostname = mqtt_host)
 
+    def sendMQTT_temp(self,temperature):
+        topic_name = "NhanIOT/test/t_data_SHTC3/"
+        mqtt_host = "test.mosquitto.org"
+        data_out = temperature
+        publish.single(topic_name, data_out, hostname = mqtt_host)
+    def sendMQTT_humid(self,humidity):
+        topic_name = "NhanIOT/test/h_data_SHTC3/"
+        mqtt_host = "test.mosquitto.org"
+        data_out = humidity
+        publish.single(topic_name, data_out, hostname = mqtt_host)
 ###################################################
         
 ###################################################
@@ -146,6 +163,7 @@ header1 = 'temperature'
 header2 = 'humidity'
 header3 = 'time'
 #register SHTC3 sensor to the system, must run in su mode
+#os.system("su -")
 #os.system("echo shtc1 0x70 > /sys/bus/i2c/devices/i2c-1/new_device")
 
 sensor1 = SHTC3Sensor()
@@ -160,18 +178,21 @@ if not(os.path.isfile(csv_filename2)):
 while True:
     temperature2 = round(sensor2.read_temp(),1)
     print("Temperature from TMP117 : ", temperature2, "C")
+    sensor2.sendMQTT_temp(str(temperature2))
     
     temperature1 = round(sensor1.read_temperature(),1)
     print("Temperature from SHTC3  : ", temperature1, "C")
-    
+    sensor1.sendMQTT_temp(str(temperature1))
+     
     humidity = round(sensor1.read_humidity(),1)
     print("Humidity from SHTC3     : ", humidity, "%")
-    
+    sensor1.sendMQTT_humid(str(humidity))
     time_now = str(dt.datetime.now())
     
     sensor1.write_csv_data(csv_filename1, temperature1, humidity, time_now)
     sensor2.write_csv_data(csv_filename2, temperature2, time_now)
     
+   
     sensor1.sendMQTT(temperature1, humidity, time_now)
     if sensor1.check_cross_max_temp():
         print ("Temperature now %s cross max value %s!" % (round(temperature1,1), SHTC3Sensor.shtc3_temp_max_value))
