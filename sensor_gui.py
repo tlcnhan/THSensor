@@ -25,10 +25,15 @@ class Application(Frame):
 		self.temp_data2.set("Temperature TMP117")
 		self.temperature2.pack()
 		
+		self.temperature_alarm = Label(self, textvariable=self.temp_data_alarm, fg = 'red', font=('Verdana', 20, 'bold'))
+		self.time.set("Temperature Alarm")
+		self.cur_time.pack() # organize in block
+		
 	# Init the variables & start measurements
 	def __init__(self, master=None):
 		Frame.__init__(self, master)
 		self.time = StringVar() # used for widget text edit
+		self.temp_data_alarm = StringVar()
 		self.temp_data1 = StringVar()
 		self.hum_data1 = StringVar()
 		self.temp_data2 = StringVar()
@@ -53,7 +58,10 @@ class Application(Frame):
 	def receiveData_t2(self, t_data):
 		self.temp_data2.set("Temperature TMP117: " + t_data + " oC")
 		self.temperature2.pack()	
-	
+	def receiveData_a(self, a_data):
+		self.temp_data_alarm.set(a_data)
+		self.temperature_alarm.pack()
+		
 	# write to csv file
 	def write_csv_data(self, filename, data, time_data):
 		with open(filename, mode = 'a') as f:
@@ -70,6 +78,7 @@ class Application(Frame):
 ##########################################################################
 app = Application()
 
+csv_filename_t_alarm = "temperature_alarm.csv"
 csv_filename_t_tmp117 = "temperature_TMP117.csv"
 csv_filename_t_shtc3 = "temperature_SHTC3.csv"
 csv_filename_h_shtc3 = "humidity_SHTC3.csv"
@@ -125,5 +134,18 @@ client_t2.connect("test.mosquitto.org", 1883)
 client_t2.subscribe("NhanIOT/test/t_data_TMP117/") 
 client_t2.on_message = messageFunction_t2 # Attach the messageFunction to subscription
 client_t2.loop_start() # Start the MQTT client
+
+# receive data from MQTT broker and update these values
+def messageFunction_a (client, userdata, message):
+	topic = str(message.topic)
+	message = str(message.payload.decode("utf-8"))
+	app.receiveData_a(message)
+	#app.write_csv_data(csv_filename_t_alarm, message, str(dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+	
+client_a = mqtt.Client("Client_alarm") 
+client_a.connect("test.mosquitto.org", 1883) 
+client_a.subscribe("NhanIOT/test/alarm/") 
+client_a.on_message = messageFunction_a # Attach the messageFunction to subscription
+client_a.loop_start() # Start the MQTT client
 
 app.mainloop()

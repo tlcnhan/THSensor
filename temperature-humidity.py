@@ -133,14 +133,17 @@ class SHTC3Sensor(object):
         publish.single(topic_name, data_out, hostname = mqtt_host)
         
     def sendMQTT_alarm(self, temperature):
-        topic_name = "NhanIOT/test/alarm/"
+        topic_name1 = "NhanIOT/test/"
+        topic_name2 = "NhanIOT/test/alarm/"
         mqtt_host = "test.mosquitto.org"
         
         data_dict = {"Temperature": temperature, "Humidity": humidity,"time": str(dt.datetime.now())}
         data_out = json.dumps(data_dict)
-        publish.single(topic_name, data_out, hostname = mqtt_host)
-        msg = "Temperature cross max value " + str(SHTC3Sensor.shtc3_temp_max_value)
-        publish.single(topic_name, msg, hostname = mqtt_host)
+        publish.single(topic_name1, data_out, hostname = mqtt_host)
+        msg1 = "Temperature cross max value " + str(SHTC3Sensor.shtc3_temp_max_value)
+        publish.single(topic_name1, msg1, hostname = mqtt_host)
+        msg2 = "Temperature " + str(temperature) + " over max " + str(SHTC3Sensor.shtc3_temp_max_value)
+        publish.single(topic_name2, msg2, hostname = mqtt_host)
 
     def sendMQTT_temp(self,temperature):
         topic_name = "NhanIOT/test/t_data_SHTC3/"
