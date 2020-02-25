@@ -11,7 +11,6 @@ import json
 # TMP117 sensor with temperature
 ##################################################################
 class TMP117Sensor(object):
-    tmp117_temp_max_value = 25
     
     i2c_ch = 1
     # TMP117 address on the I2C bus
@@ -59,12 +58,7 @@ class TMP117Sensor(object):
             f_writer = csv.writer(f, delimiter = ',')
             f_writer.writerow([t_data, time_data])
     
-    # check if temperature cross max value
-    def check_cross_max(self):
-        if self.read_temp() > TMP117Sensor.tmp117_temp_max_value :
-            return True
-        else:
-            return False
+   
     # send temp value to MQTT broker    
     def sendMQTT_temp(self,temperature):
         topic_name = "NhanIOT/test/t_data_TMP117/"
@@ -82,11 +76,9 @@ class TMP117Sensor(object):
 # can install lm-sensors to verifiy the temperator/humidity with this software
 #############################################################################
 class SHTC3Sensor(object):
+    
     temperature_data_path = "/sys/class/hwmon/hwmon1/temp1_input"
     humidity_data_path = "/sys/class/hwmon/hwmon1/humidity1_input"
-    
-    shtc3_temp_max_value = 24
-    shtc3_humid_max_value = 20
     
     #read humidity value and temperature from the SHTC3 sensor
     def read_humidity(self):
@@ -110,56 +102,43 @@ class SHTC3Sensor(object):
             f_writer = csv.writer(f, delimiter = ',')
             f_writer.writerow([header1, header2, header3])
     
-   # check if temperature cross max value
-    def check_cross_max_temp(self):
-        if self.read_temperature() > SHTC3Sensor.shtc3_temp_max_value :
-            return True
-        else:
-            return False
-    # check if humidity cross max value
-    def check_cross_max_humid(self):
-        if self.read_humidity() > SHTC3Sensor.shtc3_humid_max_value :
-            return True
-        else:
-            return False
-        
     # send MQTT message to the broker
     def sendMQTT(self,temperature, humidity, time):
         topic_name = "NhanIOT/test/"
-        mqtt_host = "test.mosquitto.org"
-        
+        mqtt_host = "test.mosquitto.org"      
         data_dict = {"Temperature": temperature, "Humidity": humidity,"time": str(dt.datetime.now())}
         data_out = json.dumps(data_dict)
         publish.single(topic_name, data_out, hostname = mqtt_host)
         
-    def sendMQTT_alarm(self, temperature):
-        topic_name1 = "NhanIOT/test/"
-        topic_name2 = "NhanIOT/test/alarm/"
-        mqtt_host = "test.mosquitto.org"
-        
-        data_dict = {"Temperature": temperature, "Humidity": humidity,"time": str(dt.datetime.now())}
-        data_out = json.dumps(data_dict)
-        publish.single(topic_name1, data_out, hostname = mqtt_host)
-        msg1 = "Temperature cross max value " + str(SHTC3Sensor.shtc3_temp_max_value)
-        publish.single(topic_name1, msg1, hostname = mqtt_host)
-        msg2 = "Temperature " + str(temperature) + " over max " + str(SHTC3Sensor.shtc3_temp_max_value)
-        publish.single(topic_name2, msg2, hostname = mqtt_host)
+    def sendMQTT_alarm_t(self, alarm_msg):
+        topic_name = "NhanIOT/test/alarm_t/"
+        mqtt_host = "test.mosquitto.org"      
+        publish.single(topic_name, alarm_msg, hostname = mqtt_host)
+    def sendMQTT_alarm_h(self, alarm_msg):
+        topic_name = "NhanIOT/test/alarm_h/"
+        mqtt_host = "test.mosquitto.org"      
+        publish.single(topic_name, alarm_msg, hostname = mqtt_host)
 
     def sendMQTT_temp(self,temperature):
         topic_name = "NhanIOT/test/t_data_SHTC3/"
         mqtt_host = "test.mosquitto.org"
         data_out = temperature
         publish.single(topic_name, data_out, hostname = mqtt_host)
+        
     def sendMQTT_humid(self,humidity):
         topic_name = "NhanIOT/test/h_data_SHTC3/"
         mqtt_host = "test.mosquitto.org"
         data_out = humidity
         publish.single(topic_name, data_out, hostname = mqtt_host)
-###################################################
+
         
 ###################################################
 # MAIN
 ##################################################
+tmp117_temp_max_value = 0
+shtc3_temp_max_value = 0
+shtc3_humid_max_value = 0
+    
 csv_filename1 = 'temp-humid.csv'
 csv_filename2 = 'temp.csv'
 header1 = 'temperature'
@@ -172,6 +151,11 @@ header3 = 'time'
 sensor1 = SHTC3Sensor()
 sensor2 = TMP117Sensor()
 sensor2.init_i2c_smbus()
+
+#tmp117_temp_max_value = int(input("Max temperature for TMP117 ? : "))
+shtc3_temp_max_value  = int(input("Max temperature for SHTC3  ? : "))
+shtc3_humid_max_value = int(input("Max humidity for SHTC3     ? : "))
+
 # prepare header for csv file
 if not(os.path.isfile(csv_filename1)):
     sensor1.write_csv_header(csv_filename1, header1, header2, header3)
@@ -190,17 +174,24 @@ while True:
     humidity = round(sensor1.read_humidity(),1)
     print("Humidity from SHTC3     : ", humidity, "%")
     sensor1.sendMQTT_humid(str(humidity))
-    time_now = str(dt.datetime.now())
+    time_now = str(dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     
-    sensor1.write_csv_data(csv_filename1, temperature1, humidity, time_now)
-    sensor2.write_csv_data(csv_filename2, temperature2, time_now)
+    #sensor1.write_csv_data(csv_filename1, temperature1, humidity, time_now)
+    #sensor2.write_csv_data(csv_filename2, temperature2, time_now)
     
    
     sensor1.sendMQTT(temperature1, humidity, time_now)
-    if sensor1.check_cross_max_temp():
-        print ("Temperature now %s cross max value %s!" % (round(temperature1,1), SHTC3Sensor.shtc3_temp_max_value))
-        sensor1.sendMQTT_alarm(temperature1)
+    if temperature1 > shtc3_temp_max_value:
+        alarm_msg = "Temperature now %s cross max value %s!" % (round(temperature1,1), shtc3_temp_max_value)
+        print(alarm_msg)
+        sensor1.sendMQTT_alarm_t(alarm_msg)
     else:
         print("Temperature is still under max value!")
+    if humidity > shtc3_humid_max_value:
+        alarm_msg = "Humidity now %s cross max value %s!" % (round(humidity,1), shtc3_humid_max_value)
+        print(alarm_msg)
+        sensor1.sendMQTT_alarm_h(alarm_msg)
+    else:
+        print("Humidity is still under max value!")
     
     time.sleep(1)
