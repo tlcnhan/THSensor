@@ -12,7 +12,7 @@ temp_header = 'temperature'
 humid_header = 'humidity'
 time_header = 'time'
 
-max_temp = 25
+max_temp  = 25
 max_humid = 25
 
 # sensor interface by Denis
@@ -67,7 +67,7 @@ class SensorInterface(Frame):
         
     # conversionC to F
     def CtoF(self, c_temp):
-        return (c_temp * 9/5) + 32
+        return round(((c_temp * 9/5) + 32), 1)
         
     # write to csv file
     def write_csv_data(self, filename, data, time_data):
