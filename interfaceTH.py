@@ -22,7 +22,7 @@ class SensorInterface(Frame):
         Frame.__init__(self)
         self.pack(expand=YES, fill=BOTH)
         self.master.title("Sensor information")
-        self.master.geometry("500x350")  # width x length
+        self.master.geometry("500x250")  # width x length
         
         # create labels, entries, buttons
         self.connectButton = Button(self, text=" Connect ", command=self.pressedConnect)
@@ -65,7 +65,7 @@ class SensorInterface(Frame):
     def pressedConnect(self):   
         self.measure()
         
-    # conversionC to F
+    # conversion C to F
     def CtoF(self, c_temp):
         return round(((c_temp * 9/5) + 32), 1)
         
@@ -91,7 +91,14 @@ class SensorInterface(Frame):
             h_sensor.init_shtc3()
             SensorInterface.init_count += 1
             
+        time_now = str(dt.datetime.now())
+        
         temperature = round(t_sensor.read_temperature(),1)
+        humidity = round(h_sensor.read_humidity(),1)
+        
+        self.write_csv_data(humid_csv_filename, humidity, time_now)
+        self.write_csv_data(temp_csv_filename, temperature, time_now)
+        
         if self.checkTemp(temperature):
             self.tempAlert.config(bg="red")
         else:
@@ -103,9 +110,8 @@ class SensorInterface(Frame):
            
         self.tempEntry.delete(0, END)
         self.tempEntry.insert(0, str(temperature))  
-        print("Temperature from TMP117 : ", temperature)
-         
-        humidity = round(h_sensor.read_humidity(),1)
+        print("Temperature from TMP117 : ", temperature) 
+        
         if self.checkHumid(humidity):
             self.humidAlert.config(bg="red")
         else:
@@ -113,15 +119,9 @@ class SensorInterface(Frame):
             
         self.humidEntry.delete(0, END)
         self.humidEntry.insert(0, str(humidity))
-        print("Humidity from SHTC3     : ", humidity, "%")
-        
-        time_now = str(dt.datetime.now())
-    
-        self.write_csv_data(humid_csv_filename, humidity, time_now)
-        self.write_csv_data(temp_csv_filename, temperature, time_now)
+        print("Humidity from SHTC3     : ", humidity, "%")    
     
         self.after(1000,self.measure)
-
     		
     # check max value for temp and humidity	
     def checkTemp( self, t_data ):
@@ -201,9 +201,7 @@ class SHTC3Sensor(object):
 ###########################################################################    
 def main():
     
-    interface = SensorInterface()
-    
-    
+    interface = SensorInterface()   
     
     # prepare header for csv file
     if not(os.path.isfile(humid_csv_filename)):
