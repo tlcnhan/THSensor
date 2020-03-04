@@ -5,9 +5,13 @@ import smbus
 import os
 import time
 import datetime as dt
+
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+
+from itertools import count
 # values
-humid_csv_filename = 'humiditySHTC3.csv'
-temp_csv_filename = 'temperatureTMP117.csv'
+csv_filename = 'temp_humidity.csv'
 temp_header = 'temperature'
 humid_header = 'humidity'
 time_header = 'time'
@@ -33,13 +37,13 @@ class SensorInterface(Frame):
         self.humidLabel = Label(self, text=" Humidity ")
         self.humidEntry = Entry(self, name="humid", width = "5")
         
-        self.tempAlert  = Label(self, text = "     ", bg="white" )
-        self.humidAlert = Label(self, text = "     ", bg="white")
+        self.tempAlert  = Label(self, text = "     ", bg="#d9d9d9" )
+        self.humidAlert = Label(self, text = "     ", bg="#d9d9d9")
         
-        self.tempStatButton   = Button(self, text = "STAT \n temperature")
-        self.humidStatButton  = Button(self, text="STAT\n humidity")
+        self.tempStatButton   = Button(self, text = "STAT \n temperature", command=self.pressedTempStat)
+        self.humidStatButton  = Button(self, text="STAT\n humidity", command=self.pressedHumidStat)
 
-        grad = ["C", "F"]
+        grad = ["\N{DEGREE SIGN}C", "F"]
         i = 4
         self.chosenGrad = StringVar()
         self.chosenGrad.set(grad[0])
@@ -64,25 +68,32 @@ class SensorInterface(Frame):
     # when connect button pressed
     def pressedConnect(self):   
         self.measure()
+    # when stat temp button pressed
+    def pressedTempStat(self):   
+        self.animationT()
+    # when stat humid button pressed
+    def pressedHumidStat(self):   
+        self.animationH()
         
     # conversion C to F
     def CtoF(self, c_temp):
         return round(((c_temp * 9/5) + 32), 1)
         
     # write to csv file
-    def write_csv_data(self, filename, data, time_data):
+    def write_csv_data(self, filename, time_data, t_data, h_data):
         with open(filename, mode = 'a') as f:
             f_writer = csv.writer(f, delimiter = ',')
-            f_writer.writerow([data, time_data])
+            f_writer.writerow([time_data, t_data, h_data])
 
-    def write_csv_header(self, filename, header1, header2):
+    def write_csv_header(self, filename, header1, header2, header3):
         with open(filename, mode = 'a') as f:
             f_writer = csv.writer(f, delimiter = ',')
-            f_writer.writerow([header1, header2])
+            f_writer.writerow([header1, header2, header3])
             
     #measure
     init_count = 0
     def measure(self):
+        # sensors
         h_sensor = SHTC3Sensor()
         t_sensor = TMP117Sensor()
         
@@ -95,14 +106,13 @@ class SensorInterface(Frame):
         
         temperature = round(t_sensor.read_temperature(),1)
         humidity = round(h_sensor.read_humidity(),1)
-        
-        self.write_csv_data(humid_csv_filename, humidity, time_now)
-        self.write_csv_data(temp_csv_filename, temperature, time_now)
+        # write to csv file
+        self.write_csv_data(csv_filename, time_now, temperature, humidity)
         
         if self.checkTemp(temperature):
             self.tempAlert.config(bg="red")
         else:
-            self.tempAlert.config(bg="white")
+            self.tempAlert.config(bg="#d9d9d9")
         
         # convert C to F if F was chosen
         if self.chosenGrad.get() == "F":
@@ -115,14 +125,82 @@ class SensorInterface(Frame):
         if self.checkHumid(humidity):
             self.humidAlert.config(bg="red")
         else:
-            self.humidAlert.config(bg="white")
+            self.humidAlert.config(bg="#d9d9d9")
             
         self.humidEntry.delete(0, END)
         self.humidEntry.insert(0, str(humidity))
-        print("Humidity from SHTC3     : ", humidity, "%")    
-    
+        print("Humidity from SHTC3     : ", humidity, "%")
+        
+        # wait for 1s
         self.after(1000,self.measure)
-    		
+        
+    # real-time animation for temperature and humidity from M'hamed
+    def animationT(self):
+        # sensors
+        t_sensor = TMP117Sensor()
+        if SensorInterface.init_count == 0:
+            t_sensor.init_tmp117()
+            h_sensor.init_shtc3()
+            SensorInterface.init_count += 1
+        
+        def animate(i):
+            time_axis.append(next(index))
+            t_value = t_sensor.read_temperature()
+            temp_val.append(t_value)
+
+            plt.cla()
+    
+            color = 'tab:red'
+            ax1.set_xlabel('time (s)')
+            ax1.set_ylabel('Temperature \N{DEGREE SIGN}C', color=color)
+            ax1.plot(time_axis, temp_val, color=color)
+            ax1.tick_params(axis='y', labelcolor=color)
+  
+            plt.tight_layout()
+        # anime    
+        plt.style.use('fivethirtyeight')
+        time_axis = []
+        temp_val = []
+     
+        index = count()
+        fig,ax1 = plt.subplots()    
+        ani = FuncAnimation(plt.gcf(), animate, interval=500)
+
+        plt.tight_layout()
+        plt.show()
+    # humidity    
+    def animationH(self):
+        # sensors
+        h_sensor = SHTC3Sensor()
+        if SensorInterface.init_count == 0:
+            t_sensor.init_tmp117()
+            h_sensor.init_shtc3()
+            SensorInterface.init_count += 1
+        
+        def animate(i):
+            time_axis.append(next(index))  
+            h_value = h_sensor.read_humidity()
+            hum_val.append(h_value)
+            plt.cla()
+    
+            color = 'tab:blue'
+            ax2.set_xlabel('time (s)')
+            ax2.set_ylabel('Humidity %', color=color)
+            ax2.plot(time_axis, hum_val, color=color)
+            ax2.tick_params(axis='y', labelcolor=color)
+  
+            plt.tight_layout()
+        # anime    
+        plt.style.use('fivethirtyeight')
+        time_axis = []
+        hum_val = []
+        index = count()
+        fig,ax2 = plt.subplots()    
+        ani = FuncAnimation(plt.gcf(), animate, interval=500)
+
+        plt.tight_layout()
+        plt.show()
+        
     # check max value for temp and humidity	
     def checkTemp( self, t_data ):
 	# change label color to red if cross over max values
@@ -187,14 +265,14 @@ class SHTC3Sensor(object):
     # init SHTC3 sensor
     def init_shtc3(self):
         if os.path.isfile(SHTC3Sensor.DEV_TMP) and os.path.isfile(SHTC3Sensor.DEV_HUM):
-            print("...")
+            print("OK")
         else:
-            with open(SHTC3Sensor.DEV_REG, 'wb') as f:
+            with open(SHTC3Sensor.DEV_REG, 'w') as f:
                 f.write(SHTC3Sensor.DEV_REG_PARAM)
         print("SHTC3 sensor init")
     # Read humidity values from SHTC3
     def read_humidity(self):
-        with open(SHTC3Sensor.DEV_HUM, 'rb') as f:
+        with open(SHTC3Sensor.DEV_HUM, 'r') as f:
             val = f.read().strip()
             humidity = float(int(val)) / 1000
         return humidity
@@ -204,11 +282,9 @@ def main():
     interface = SensorInterface()   
     
     # prepare header for csv file
-    if not(os.path.isfile(humid_csv_filename)):
-        interface.write_csv_header(humid_csv_filename, humid_header, time_header)
-    if not(os.path.isfile(temp_csv_filename)):
-        interface.write_csv_header(temp_csv_filename, temp_header, time_header)
-        
+    if not(os.path.isfile(csv_filename)):
+        interface.write_csv_header(csv_filename, time_header, temp_header, humid_header)
+           
     interface.mainloop()    
 
 if __name__ == "__main__":
